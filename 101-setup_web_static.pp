@@ -1,89 +1,91 @@
-# Puppet script to set up web_static deployment on web servers
+# Configures a web server for deployment of web_static.
 
-# Ensure /data directory exists with the correct permissions
-file { '/data':
-  ensure => 'directory',
-  owner  => 'ubuntu',
-  group  => 'ubuntu',
-  mode   => '0755',
-}
-
-# Ensure /data/web_static directory exists with the correct permissions
-file { '/data/web_static':
-  ensure => 'directory',
-  owner  => 'root',
-  group  => 'root',
-  mode   => '0755',
-}
-
-# Ensure /data/web_static/releases directory exists with the correct permissions
-file { '/data/web_static/releases':
-  ensure => 'directory',
-  owner  => 'root',
-  group  => 'root',
-  mode   => '0755',
-}
-
-# Ensure /data/web_static/releases/test/index.html exists with the correct permissions
-file { '/data/web_static/releases/test/index.html':
-  ensure => 'file',
-  content => '<html>
-  <head>
-  </head>
-  <body>
-    Holberton School
-  </body>
-</html>',
-  owner  => 'root',
-  group  => 'root',
-  mode   => '0644',
-}
-
-# Ensure /data/web_static/current exists
-file { '/data/web_static/current':
-  ensure => 'link',
-  target => '/data/web_static/releases/test',
-  owner  => 'root',
-  group  => 'root',
-}
-
-# Ensure Nginx configuration is updated
-file { '/etc/nginx/sites-available/default':
-  ensure => 'file',
-  content => "server {
+# Nginx configuration file
+$nginx_conf = "server {
     listen 80 default_server;
     listen [::]:80 default_server;
-
-    server_name _;
+    add_header X-Served-By ${hostname};
+    root   /var/www/html;
+    index  index.html index.htm;
 
     location /hbnb_static {
         alias /data/web_static/current;
         index index.html index.htm;
     }
 
-    location / {
-        add_header X-Served-By $hostname;
-        proxy_pass http://127.0.0.1:5000;
+    location /redirect_me {
+        return 301 http://cuberule.com/;
     }
 
     error_page 404 /404.html;
     location /404 {
-        root /usr/share/nginx/html;
-        internal;
+      root /var/www/html;
+      internal;
     }
+}"
 
-    location /redirect_me {
-        rewrite ^/redirect_me /;
-        rewrite ^/redirect_me /;
-    }
-}
-",
-  notify => Service['nginx'],
+package { 'nginx':
+  ensure   => 'present',
+  provider => 'apt'
+} ->
+
+file { '/data':
+  ensure  => 'directory'
+} ->
+
+file { '/data/web_static':
+  ensure => 'directory'
+} ->
+
+file { '/data/web_static/releases':
+  ensure => 'directory'
+} ->
+
+file { '/data/web_static/releases/test':
+  ensure => 'directory'
+} ->
+
+file { '/data/web_static/shared':
+  ensure => 'directory'
+} ->
+
+file { '/data/web_static/releases/test/index.html':
+  ensure  => 'present',
+  content => "Holberton School Puppet\n"
+} ->
+
+file { '/data/web_static/current':
+  ensure => 'link',
+  target => '/data/web_static/releases/test'
+} ->
+
+exec { 'chown -R ubuntu:ubuntu /data/':
+  path => '/usr/bin/:/usr/local/bin/:/bin/'
 }
 
-# Notify Nginx to restart if the configuration is updated
-service { 'nginx':
-  ensure  => 'running',
-  enable  => true,
-  require => File['/etc/nginx/sites-available/default'],
+file { '/var/www':
+  ensure => 'directory'
+} ->
+
+file { '/var/www/html':
+  ensure => 'directory'
+} ->
+
+file { '/var/www/html/index.html':
+  ensure  => 'present',
+  content => "Holberton School Nginx\n"
+} ->
+
+file { '/var/www/html/404.html':
+  ensure  => 'present',
+  content => "Ceci n'est pas une page\n"
+} ->
+
+file { '/etc/nginx/sites-available/default':
+  ensure  => 'present',
+  content => $nginx_conf
+} ->
+
+exec { 'nginx restart':
+  path => '/etc/init.d/'
 }

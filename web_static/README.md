@@ -1,2 +1,1 @@
-0x02. AirBnB clone - MySQL
-we file
+This directory implements webpage design.
